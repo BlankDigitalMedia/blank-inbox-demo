@@ -15,6 +15,13 @@ import { Id } from "@/convex/_generated/dataModel"
 import type { Email } from "@/lib/types"
 import { useIsLargeScreen } from "@/hooks/use-is-large-screen"
 
+// Conditionally import demo banner (only if demo mode is enabled)
+let DemoBanner: (() => JSX.Element | null) | null = null;
+if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DemoBanner = require("@/examples/demo/components/demo-banner").DemoBanner;
+}
+
 export default function DraftsPage() {
   const emails = useQuery(api.emails.listDrafts)
   const toggleStar = useMutation(api.emails.toggleStar)
@@ -145,11 +152,13 @@ export default function DraftsPage() {
     <SidebarProvider>
       <MailSidebar activeView="drafts" />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-semibold">Drafts</h1>
-        </header>
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex h-full flex-col overflow-hidden">
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <SidebarTrigger className="-ml-1" />
+            <h1 className="text-lg font-semibold">Drafts</h1>
+          </header>
+          {DemoBanner && <DemoBanner />}
+          <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* List */}
           <div className={showList ? "flex w-full lg:w-96" : "hidden lg:flex w-full lg:w-96"}>
             <DraftList
@@ -173,6 +182,7 @@ export default function DraftsPage() {
               onBack={handleBack}
               contentRef={detailScrollRef}
             />
+          </div>
           </div>
         </div>
       </SidebarInset>

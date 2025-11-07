@@ -19,6 +19,13 @@ import { NewContactDialog } from "@/components/contacts/new-contact-dialog"
 import { useIsLargeScreen } from "@/hooks/use-is-large-screen"
 import { Plus } from "lucide-react"
 
+// Conditionally import demo banner (only if demo mode is enabled)
+let DemoBanner: (() => JSX.Element | null) | null = null;
+if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DemoBanner = require("@/examples/demo/components/demo-banner").DemoBanner;
+}
+
 export default function ContactsPage() {
   const searchParams = useSearchParams()
   const [selectedContactId, setSelectedContactId] = useState<Id<"contacts"> | null>(null)
@@ -122,6 +129,7 @@ export default function ContactsPage() {
               </Button>
             </div>
           </header>
+          {DemoBanner && <DemoBanner />}
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* List pane */}
             <div className={showList ? "flex w-full lg:w-96 flex-col" : "hidden lg:flex w-full lg:w-96 flex-col"}>

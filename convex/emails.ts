@@ -217,6 +217,49 @@ export const getById = query({
   },
 })
 
+/**
+ * DEMO: Create a single mock inbound email
+ */
+export const createMockEmail = mutation({
+  args: {
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+    subject: v.optional(v.string()),
+    body: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Allow in demo without real auth
+    await requireUserId(ctx)
+
+    const now = Date.now()
+    const from = args.from ?? "Tech News <news@weeklytech.example>"
+    const to = args.to ?? "you@example.com"
+    const subject = args.subject ?? "Weekly Tech News Roundup"
+    const body = args.body ?? "<p>This week in tech: AI breakthroughs, startup funding, and more.</p>"
+    const preview = "This week in tech: AI breakthroughs, startup funding, and more."
+    const messageId = `demo-${now}-${Math.random().toString(36).slice(2, 8)}`
+
+    const docId = await ctx.db.insert("emails", {
+      from,
+      to,
+      subject,
+      preview,
+      body,
+      read: false,
+      starred: false,
+      archived: false,
+      trashed: false,
+      draft: false,
+      sent: false,
+      receivedAt: now,
+      messageId,
+      threadId: messageId,
+    })
+
+    return { id: docId }
+  },
+})
+
 // Helper to normalize email (lowercase, trim)
 const normalizeEmail = (email: string): string => {
   const trimmed = email.trim()

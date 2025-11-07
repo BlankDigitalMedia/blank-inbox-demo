@@ -8,6 +8,7 @@
  * - Unauthenticated users redirected to /signin
  * - Authenticated users redirected from /signin to /
  * - 30-day persistent cookie sessions (maxAge: 30 * 24 * 60 * 60)
+ * - DEMO MODE: Bypasses all authentication checks
  * - No additional request size/time limits needed (handled by Convex/Next.js)
  * 
  * ROUTE COVERAGE:
@@ -35,7 +36,21 @@ const isProtectedPage = createRouteMatcher([
   "/compose",
 ]);
 
+// Check if demo mode is enabled
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  // In demo mode, bypass all authentication checks
+  if (isDemoMode) {
+    // Redirect from signin to home in demo mode
+    if (isPublicPage(request)) {
+      return nextjsMiddlewareRedirect(request, "/");
+    }
+    // Allow all other routes
+    return;
+  }
+
+  // Normal auth flow for non-demo mode
   if (isProtectedPage(request) && !(await convexAuth.isAuthenticated())) {
     return nextjsMiddlewareRedirect(request, "/signin");
   }

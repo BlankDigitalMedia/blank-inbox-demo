@@ -14,6 +14,14 @@ import type { FunctionReference } from "convex/server"
 import type { Email, EmailDoc, EmailListProps, EmailDetailProps } from "@/lib/types"
 import { useIsLargeScreen } from "@/hooks/use-is-large-screen"
 import { extractEmailAddress, normalizeEmail } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+
+// Conditionally import demo banner (only if demo mode is enabled)
+let DemoBanner: (() => JSX.Element | null) | null = null;
+if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DemoBanner = require("@/examples/demo/components/demo-banner").DemoBanner;
+}
 
 interface EmailPageProps {
   title: string
@@ -39,6 +47,7 @@ export function EmailPage({
   const toggleArchive = useMutation(api.emails.toggleArchive)
   const toggleTrash = useMutation(api.emails.toggleTrash)
   const markRead = useMutation(api.emails.markRead)
+  const createMockEmail = useMutation(api.emails.createMockEmail)
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
 
   const isLg = useIsLargeScreen()
@@ -229,7 +238,20 @@ export function EmailPage({
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <h1 className="text-lg font-semibold">{title}</h1>
+            {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+              <div className="ml-auto">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    createMockEmail({})
+                  }}
+                >
+                  Receive mock email
+                </Button>
+              </div>
+            )}
           </header>
+          {DemoBanner && <DemoBanner />}
           <div className="flex flex-1 min-h-0 overflow-hidden">
             {/* List pane */}
             <div className={showList ? "flex w-full lg:w-96" : "hidden lg:flex w-full lg:w-96"}>

@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Mail } from "lucide-react"
+import { Mail, ArrowRight } from "lucide-react"
+
+// Demo user credentials
+const DEMO_USER_EMAIL = "demo@blankinbox.dev"
+const DEMO_USER_PASSWORD = "demo123"
 
 export default function SignInPage() {
   const { signIn } = useAuthActions()
@@ -19,10 +23,27 @@ export default function SignInPage() {
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Check if signup is allowed (only if no users exist)
+  // Check if demo mode is enabled
+  const isDemoMode = isMounted && process.env.NEXT_PUBLIC_DEMO_MODE === "true"
+
+  // Check if signup is allowed (only if no users exist, or in demo mode)
   const userCount = useQuery(api.users.count) ?? 0
-  const signupAllowed = userCount === 0
+  const signupAllowed = userCount === 0 || isDemoMode
+
+  useEffect(() => {
+    setIsMounted(true)
+    // In demo mode, automatically redirect to app (no auth needed)
+    if (isMounted && process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      router.replace("/")
+    }
+  }, [isMounted, router])
+
+  const handleDemoSignIn = () => {
+    // In demo mode, just redirect - no authentication needed
+    router.replace("/")
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -43,6 +64,53 @@ export default function SignInPage() {
       setError(err instanceof Error ? err.message : "Authentication failed. Please try again.")
       setLoading(false)
     }
+  }
+
+  // Show demo mode UI
+  if (isDemoMode) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+              <Mail className="h-6 w-6 text-primary" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Welcome to Blank Inbox
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Demo mode is active. Click below to explore the app without creating an account.
+            </p>
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <Button
+            onClick={handleDemoSignIn}
+            className="w-full"
+            size="lg"
+            disabled={loading}
+          >
+            {loading ? (
+              "Opening..."
+            ) : (
+              <>
+                Open App
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
+          </Button>
+
+          <p className="text-xs text-center text-muted-foreground">
+            This is a demo environment. Data resets periodically and emails are not actually sent.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

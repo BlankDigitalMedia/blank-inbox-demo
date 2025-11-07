@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -34,10 +34,29 @@ export function MailSidebar({ activeView, unreadCount = 0 }: MailSidebarProps) {
   const { signOut } = useAuthActions()
   const router = useRouter()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [isDemoMode, setIsDemoMode] = useState(false)
+
+  useEffect(() => {
+    setIsDemoMode(process.env.NEXT_PUBLIC_DEMO_MODE === "true")
+  }, [])
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push("/signin")
+    // In demo mode, just redirect to signin page without calling signOut
+    // This avoids Convex errors that might occur during logout in demo mode
+    if (isDemoMode) {
+      router.push("/signin")
+      return
+    }
+
+    // Normal logout flow for non-demo mode
+    try {
+      await signOut()
+      router.push("/signin")
+    } catch (error) {
+      // If signOut fails, still redirect to signin page
+      console.error("Sign out error:", error)
+      router.push("/signin")
+    }
   }
   
   return (
