@@ -89,7 +89,6 @@ export class CompanyProfileAgent extends BaseAgent {
           try {
             const crawlResult = await crawlWebsite(website, this.firecrawlApiKey, {
               limit: 10,
-              maxDepth: 1,
               includePaths: ['/about/*', '/company/*', '/careers/*'],
               scrapeOptions: { formats: ['markdown'] },
             });

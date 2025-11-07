@@ -75,7 +75,6 @@ export class TechStackAgent extends BaseAgent {
         try {
           const crawlResult = await crawlWebsite(website, this.firecrawlApiKey, {
             limit: 5,
-            maxDepth: 1,
             includePaths: ['/careers/*', '/jobs/*', '/team/*'],
             scrapeOptions: { formats: ['markdown'] },
           });

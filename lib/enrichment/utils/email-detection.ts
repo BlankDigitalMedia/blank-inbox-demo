@@ -10,7 +10,7 @@ export function parseEmail(email: string): {
   const emailRegex = /^([^@]+)@([^@]+)$/;
   const match = email.match(emailRegex);
   
-  if (!match) {
+  if (!match || !match[1] || !match[2]) {
     return null;
   }
 
@@ -50,17 +50,20 @@ export function parseEmail(email: string): {
     };
     
     // Get the main domain part
-    const rawName = domainParts[0].toLowerCase();
-    
-    // Check if it's a known company
-    if (knownCompanies[rawName]) {
-      result.companyName = knownCompanies[rawName];
-    } else {
-      // Handle hyphenated names: my-company -> My Company
-      const words = domainParts[0].split('-').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-      );
-      result.companyName = words.join(' ');
+    const firstPart = domainParts[0];
+    if (firstPart) {
+      const rawName = firstPart.toLowerCase();
+      
+      // Check if it's a known company
+      if (knownCompanies[rawName]) {
+        result.companyName = knownCompanies[rawName];
+      } else {
+        // Handle hyphenated names: my-company -> My Company
+        const words = firstPart.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        );
+        result.companyName = words.join(' ');
+      }
     }
   }
 
@@ -72,7 +75,7 @@ export function parseEmail(email: string): {
   } else if (nameParts.length === 1) {
     // Check if it's a combined name like "johnsmith"
     const combinedMatch = localPart.match(/^([a-z]+)([A-Z][a-z]+)$/);
-    if (combinedMatch) {
+    if (combinedMatch && combinedMatch[1] && combinedMatch[2]) {
       result.firstName = combinedMatch[1];
       result.lastName = combinedMatch[2].toLowerCase();
     }

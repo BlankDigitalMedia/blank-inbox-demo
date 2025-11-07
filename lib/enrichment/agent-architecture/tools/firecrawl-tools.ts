@@ -259,7 +259,6 @@ export async function crawlWebsite(
   apiKey: string,
   options?: {
     limit?: number;
-    maxDepth?: number;
     includePaths?: string[];
     excludePaths?: string[];
     scrapeOptions?: {
@@ -279,7 +278,6 @@ export async function crawlWebsite(
       const client = new Firecrawl({ apiKey });
       return client.crawl(url, {
         limit: options?.limit ?? 20,
-        maxDepth: options?.maxDepth ?? 2,
         includePaths: options?.includePaths,
         excludePaths: options?.excludePaths,
         scrapeOptions: options?.scrapeOptions ?? {
