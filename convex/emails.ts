@@ -221,7 +221,7 @@ export const getById = query({
 const normalizeEmail = (email: string): string => {
   const trimmed = email.trim()
   const angleMatch = trimmed.match(/<([^>]+)>/)
-  const extracted = angleMatch ? angleMatch[1] : trimmed.replace(/^"+|"+$/g, "")
+  const extracted = angleMatch?.[1] ?? trimmed.replace(/^"+|"+$/g, "")
   return extracted.trim().toLowerCase()
 }
 

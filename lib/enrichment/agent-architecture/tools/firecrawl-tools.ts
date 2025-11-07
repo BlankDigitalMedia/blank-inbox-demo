@@ -12,13 +12,16 @@ async function ensureWithinRateLimit(): Promise<void> {
   const now = Date.now();
   // Cleanup timestamps older than 60s
   for (let i = firecrawlRequestTimes.length - 1; i >= 0; i--) {
-    if (now - firecrawlRequestTimes[i] > 60_000) firecrawlRequestTimes.splice(i, 1);
+    const timestamp = firecrawlRequestTimes[i];
+    if (timestamp && now - timestamp > 60_000) firecrawlRequestTimes.splice(i, 1);
   }
 
   if (firecrawlRequestTimes.length >= FIRECRAWL_MAX_RPM) {
     const earliest = firecrawlRequestTimes[0];
-    const waitMs = Math.max(earliest + 60_000 - now, 0) + 25; // small jitter
-    await new Promise((r) => setTimeout(r, waitMs));
+    if (earliest) {
+      const waitMs = Math.max(earliest + 60_000 - now, 0) + 25; // small jitter
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
   }
 
   firecrawlRequestTimes.push(Date.now());
@@ -67,7 +70,7 @@ function backoffMsFromError(error: unknown): number {
 
   // Pattern: "retry after 19s"
   const retryAfterMatch = msg.match(/retry after\s+(\d+)s/i);
-  if (retryAfterMatch) {
+  if (retryAfterMatch && retryAfterMatch[1]) {
     const seconds = parseInt(retryAfterMatch[1], 10);
     if (!Number.isNaN(seconds) && seconds > 0) {
       return Math.min(seconds * 1000, 60_000); // cap at 60s
@@ -76,7 +79,7 @@ function backoffMsFromError(error: unknown): number {
 
   // Pattern: "resets at Thu Nov 06 2025 ..."
   const resetsAtMatch = msg.match(/resets at\s+([^\n]+)/i);
-  if (resetsAtMatch) {
+  if (resetsAtMatch && resetsAtMatch[1]) {
     const when = Date.parse(resetsAtMatch[1].trim());
     if (!Number.isNaN(when)) {
       const delta = when - Date.now();

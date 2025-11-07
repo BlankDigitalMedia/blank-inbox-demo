@@ -20,7 +20,7 @@ import {
 const normalizeEmail = (email: string): string => {
   const trimmed = email.trim()
   const angleMatch = trimmed.match(/<([^>]+)>/)
-  const extracted = angleMatch ? angleMatch[1] : trimmed.replace(/^"+|"+$/g, "")
+  const extracted = angleMatch?.[1] ?? trimmed.replace(/^"+|"+$/g, "")
   return extracted.trim().toLowerCase()
 }
 
@@ -149,7 +149,7 @@ export const listContacts = query({
 
     return {
       page: accumulated,
-      continueCursor,
+      continueCursor: continueCursor ?? "",
       isDone: isDone || !continueCursor,
     }
   },
@@ -523,7 +523,7 @@ export const upsertContactFromEmail = internalMutation({
         const keepContact = sorted[0]
         
         // If our contact is not the one to keep, delete it and update the kept one
-        if (keepContact._id !== contactId) {
+        if (keepContact && keepContact._id !== contactId) {
           await ctx.db.delete(contactId)
           
           // Update the kept contact with our data
@@ -577,6 +577,10 @@ export const upsertContactFromEmail = internalMutation({
       if (contactsWithEmail.length > 0) {
         // Found duplicate - use the first one found
         const existingContact = contactsWithEmail[0]
+        if (!existingContact) {
+          // Should never happen, but TypeScript requires this check
+          throw new Error("Existing contact not found")
+        }
         await ctx.db.delete(contactId)
         
         // Update existing contact

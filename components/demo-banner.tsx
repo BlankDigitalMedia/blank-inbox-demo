@@ -19,7 +19,9 @@ import { cn } from "@/lib/utils";
 export function DemoBanner() {
   const [isResetting, setIsResetting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const resetDemo = useAction(api["demo/index"].resetDemo);
+  // Access nested Convex module (demo/index.ts)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resetDemo = useAction((api as any)["demo/index"].resetDemo);
 
   // Prevent hydration mismatch by only rendering after client-side mount
   useEffect(() => {

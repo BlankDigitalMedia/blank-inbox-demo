@@ -95,10 +95,16 @@ export async function POST(request: NextRequest) {
 
     const { email, fields } = validationResult.data;
 
+    // Normalize fields: ensure required is always a boolean (defaults to false)
+    const normalizedFields = fields?.map(field => ({
+      ...field,
+      required: field.required ?? false,
+    })) ?? [];
+
     // Enrich email with timeout
     const strategy = new AgentEnrichmentStrategy(openaiApiKey, firecrawlApiKey);
     const result = await withTimeout(
-      strategy.enrichEmail(email, fields),
+      strategy.enrichEmail(email, normalizedFields),
       ENRICHMENT_TIMEOUT_MS,
       'Enrichment operation timed out. Please try again.'
     );

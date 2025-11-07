@@ -126,7 +126,7 @@ export class SimpleEnrichmentOrchestrator {
     const results = await Promise.allSettled(parallelAgents.map(a => a.run()));
 
     results.forEach((res, idx) => {
-      const agentName = parallelAgents[idx].name;
+      const agentName = parallelAgents[idx]?.name ?? `Agent ${idx}`;
       if (res.status !== 'fulfilled') {
         console.error(`[Orchestrator] ${agentName} failed (parallel):`, res.reason);
         return;
