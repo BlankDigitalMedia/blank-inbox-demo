@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { BaseAgent } from '../core/agent-base';
+import { BaseAgent, urlString } from '../core/agent-base';
 import type { AgentResult, EmailContext } from '../core/types';
 import { searchWeb } from '../tools/firecrawl-tools';
 
 const PersonResultSchema = z.object({
-  titleNormalized: z.string().optional(),
-  seniority: z.enum(['executive', 'director', 'senior', 'mid', 'junior', 'founder', 'unknown']).optional(),
-  department: z.string().optional(),
-  linkedinUrl: z.string().url().optional(),
-  location: z.string().optional(),
+  titleNormalized: z.string().nullable(),
+  seniority: z.enum(['executive', 'director', 'senior', 'mid', 'junior', 'founder', 'unknown']).nullable(),
+  department: z.string().nullable(),
+  linkedinUrl: urlString.nullable(),
+  location: z.string().nullable(),
 });
 
 export type PersonResult = z.infer<typeof PersonResultSchema>;

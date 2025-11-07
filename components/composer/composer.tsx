@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { useAction, useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery, usePaginatedQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { Send, X } from "lucide-react"
@@ -33,6 +33,14 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { FROM_ADDRESSES, useSenderSelection } from "@/hooks/use-sender-selection"
 import { useDraftAutosave } from "@/hooks/use-draft-autosave"
+
+// Conditionally import demo mode utility (only if demo mode is enabled)
+// Using require to avoid bundling demo code when not needed
+let isDemoMode: () => boolean = () => false;
+if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  isDemoMode = require("@/examples/demo/lib/demo").isDemoMode;
+}
 
 const ADDRESS_DELIMITER_REGEX = /[,;\n]+/
 
@@ -124,7 +132,11 @@ export function Composer({
   const { update } = useCompose()
   const sendEmail = useAction(api.emails.sendEmail)
   const toValue = useMemo(() => toRecipients.join(", "), [toRecipients])
-  const contactsData = useQuery(api.contacts.listContacts, {})
+  const { results: contactsData } = usePaginatedQuery(
+    api.contacts.listContacts,
+    {},
+    { initialNumItems: 100 }
+  )
   
   // Transform contacts to match expected format
   const contacts = useMemo(() => {
@@ -751,7 +763,14 @@ export function Composer({
       }
 
       await sendEmail(sendParams)
-      toast.success("Email sent successfully")
+      
+      // Show demo mode notification if enabled
+      if (isDemoMode()) {
+        toast.info("Demo mode: Email saved locally (not actually sent)")
+      } else {
+        toast.success("Email sent successfully")
+      }
+      
       onSend()
     } catch (error) {
       console.error("Failed to send email:", error)

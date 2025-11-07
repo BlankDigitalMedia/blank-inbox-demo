@@ -67,16 +67,16 @@ export class GeneralAgent extends BaseAgent {
       for (const field of customFields) {
         switch (field.type) {
           case 'number':
-            schemaFields[field.name] = z.number().optional();
+            schemaFields[field.name] = z.number().nullable();
             break;
           case 'boolean':
-            schemaFields[field.name] = z.boolean().optional();
+            schemaFields[field.name] = z.boolean().nullable();
             break;
           case 'array':
-            schemaFields[field.name] = z.array(z.string()).optional();
+            schemaFields[field.name] = z.array(z.string()).nullable();
             break;
           default:
-            schemaFields[field.name] = z.string().optional();
+            schemaFields[field.name] = z.string().nullable();
         }
       }
 

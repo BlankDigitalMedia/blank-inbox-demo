@@ -3,6 +3,56 @@ import Firecrawl from '@mendable/firecrawl-js';
 // Simple in-process rate-limit awareness for Firecrawl API
 let firecrawlRateLimitedUntil = 0;
 
+// In-process request throttle (best-effort, single process)
+const FIRECRAWL_MAX_RPM = Number.parseInt(process.env.FIRECRAWL_MAX_RPM || '5', 10); // default 5 req/min
+const firecrawlRequestTimes: number[] = [];
+
+async function ensureWithinRateLimit(): Promise<void> {
+  if (FIRECRAWL_MAX_RPM <= 0) return; // throttling disabled
+  const now = Date.now();
+  // Cleanup timestamps older than 60s
+  for (let i = firecrawlRequestTimes.length - 1; i >= 0; i--) {
+    if (now - firecrawlRequestTimes[i] > 60_000) firecrawlRequestTimes.splice(i, 1);
+  }
+
+  if (firecrawlRequestTimes.length >= FIRECRAWL_MAX_RPM) {
+    const earliest = firecrawlRequestTimes[0];
+    const waitMs = Math.max(earliest + 60_000 - now, 0) + 25; // small jitter
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+
+  firecrawlRequestTimes.push(Date.now());
+}
+
+// Lightweight in-memory cache with TTL and promise deduplication
+type CacheEntry<T> = { expiresAt: number; value?: T; promise?: Promise<T> };
+const cache = new Map<string, CacheEntry<any>>();
+
+function getCacheKey(kind: string, parts: any): string {
+  return `${kind}:${typeof parts === 'string' ? parts : JSON.stringify(parts)}`;
+}
+
+async function cached<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+  const existing = cache.get(key);
+  const now = Date.now();
+  if (existing && existing.expiresAt > now) {
+    if (existing.value !== undefined) return existing.value as T;
+    if (existing.promise) return existing.promise as Promise<T>;
+  }
+
+  const promise = fetcher().then((val) => {
+    cache.set(key, { expiresAt: now + ttlMs, value: val });
+    return val;
+  }).catch((err) => {
+    // On failure, set short-lived negative cache to avoid stampedes
+    cache.set(key, { expiresAt: now + Math.min(5_000, ttlMs / 10) });
+    throw err;
+  });
+
+  cache.set(key, { expiresAt: now + ttlMs, promise });
+  return promise;
+}
+
 function isRateLimitError(error: unknown): boolean {
   const anyErr = error as any;
   const status = anyErr?.status || anyErr?.response?.status || anyErr?.details?.status;
@@ -12,6 +62,28 @@ function isRateLimitError(error: unknown): boolean {
 
 function backoffMsFromError(error: unknown): number {
   // Default 30s; try to parse reset hint if present
+  const anyErr = error as any;
+  const msg: string = anyErr?.message || '';
+
+  // Pattern: "retry after 19s"
+  const retryAfterMatch = msg.match(/retry after\s+(\d+)s/i);
+  if (retryAfterMatch) {
+    const seconds = parseInt(retryAfterMatch[1], 10);
+    if (!Number.isNaN(seconds) && seconds > 0) {
+      return Math.min(seconds * 1000, 60_000); // cap at 60s
+    }
+  }
+
+  // Pattern: "resets at Thu Nov 06 2025 ..."
+  const resetsAtMatch = msg.match(/resets at\s+([^\n]+)/i);
+  if (resetsAtMatch) {
+    const when = Date.parse(resetsAtMatch[1].trim());
+    if (!Number.isNaN(when)) {
+      const delta = when - Date.now();
+      if (delta > 0) return Math.min(delta, 120_000); // cap at 120s
+    }
+  }
+
   return 30_000;
 }
 
@@ -51,18 +123,23 @@ export async function scrapeWebsite(
     if (Date.now() < firecrawlRateLimitedUntil) {
       return {};
     }
-    const client = new Firecrawl({ apiKey });
-    const result = await client.scrape(url, {
-      formats: ['markdown', 'html'],
-      onlyMainContent: true,
+    const key = getCacheKey('scrape', url);
+    return await cached<ScrapedContent>(key, 60 * 60 * 1000, async () => {
+      await ensureWithinRateLimit();
+      const client = new Firecrawl({ apiKey });
+      const result = await client.scrape(url, {
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+      });
+      return result as ScrapedContent;
     });
-    return result as ScrapedContent;
   } catch (error) {
-    console.error(`[scrapeWebsite] Error scraping ${url}:`, error);
     if (isRateLimitError(error)) {
+      console.warn(`[scrapeWebsite] Rate limited while scraping ${url}. Backing off.`, error);
       firecrawlRateLimitedUntil = Date.now() + backoffMsFromError(error);
       return {};
     }
+    console.error(`[scrapeWebsite] Error scraping ${url}:`, error);
     throw error;
   }
 }
@@ -85,13 +162,17 @@ export async function searchWeb(
     if (Date.now() < firecrawlRateLimitedUntil) {
       return [];
     }
-    const client = new Firecrawl({ apiKey });
-    const searchResults = await client.search(query, {
-      limit: options?.limit ?? 5,
-      sources: options?.sources ?? [{ type: 'web' }],
-      scrapeOptions: options?.scrapeOptions ?? {
-        formats: ['markdown'],
-      },
+    const key = getCacheKey('search', { query, options });
+    const searchResults = await cached<any>(key, 10 * 60 * 1000, async () => {
+      await ensureWithinRateLimit();
+      const client = new Firecrawl({ apiKey });
+      return client.search(query, {
+        limit: options?.limit ?? 5,
+        sources: options?.sources ?? [{ type: 'web' }],
+        scrapeOptions: options?.scrapeOptions ?? {
+          formats: ['markdown'],
+        },
+      });
     });
 
     const results: SearchResult[] = [];
@@ -119,9 +200,11 @@ export async function searchWeb(
 
     return results;
   } catch (error) {
-    console.error(`[searchWeb] Error searching for "${query}":`, error);
     if (isRateLimitError(error)) {
+      console.warn(`[searchWeb] Rate limited for query "${query}". Backing off.`, error);
       firecrawlRateLimitedUntil = Date.now() + backoffMsFromError(error);
+    } else {
+      console.error(`[searchWeb] Error searching for "${query}":`, error);
     }
     // Return empty array on error rather than throwing
     return [];
@@ -140,16 +223,25 @@ export async function mapWebsite(
   }
 ): Promise<MapResult> {
   try {
-    const client = new Firecrawl({ apiKey });
-    const result = await client.map(url, {
-      search: options?.search,
-      limit: options?.limit ?? 50,
+    const key = getCacheKey('map', { url, options });
+    const result = await cached<any>(key, 30 * 60 * 1000, async () => {
+      await ensureWithinRateLimit();
+      const client = new Firecrawl({ apiKey });
+      return client.map(url, {
+        search: options?.search,
+        limit: options?.limit ?? 50,
+      });
     });
 
     return {
       links: result.links || [],
     };
   } catch (error) {
+    if (isRateLimitError(error)) {
+      console.warn(`[mapWebsite] Rate limited while mapping ${url}. Backing off.`, error);
+      firecrawlRateLimitedUntil = Date.now() + backoffMsFromError(error);
+      return { links: [] };
+    }
     console.error(`[mapWebsite] Error mapping ${url}:`, error);
     // Return empty result on error
     return { links: [] };
@@ -178,26 +270,32 @@ export async function crawlWebsite(
     if (Date.now() < firecrawlRateLimitedUntil) {
       return { data: [] };
     }
-    const client = new Firecrawl({ apiKey });
-    const response = await client.crawl(url, {
-      limit: options?.limit ?? 20,
-      maxDepth: options?.maxDepth ?? 2,
-      includePaths: options?.includePaths,
-      excludePaths: options?.excludePaths,
-      scrapeOptions: options?.scrapeOptions ?? {
-        formats: ['markdown', 'html'],
-      },
-      pollInterval: options?.pollInterval ?? 5000,
-      timeout: options?.timeout ?? 300000,
+    const key = getCacheKey('crawl', { url, options });
+    const response = await cached<any>(key, 10 * 60 * 1000, async () => {
+      await ensureWithinRateLimit();
+      const client = new Firecrawl({ apiKey });
+      return client.crawl(url, {
+        limit: options?.limit ?? 20,
+        maxDepth: options?.maxDepth ?? 2,
+        includePaths: options?.includePaths,
+        excludePaths: options?.excludePaths,
+        scrapeOptions: options?.scrapeOptions ?? {
+          formats: ['markdown', 'html'],
+        },
+        pollInterval: options?.pollInterval ?? 5000,
+        timeout: options?.timeout ?? 300000,
+      });
     });
 
     return {
       data: response.data || [],
     };
   } catch (error) {
-    console.error(`[crawlWebsite] Error crawling ${url}:`, error);
     if (isRateLimitError(error)) {
+      console.warn(`[crawlWebsite] Rate limited while crawling ${url}. Backing off.`, error);
       firecrawlRateLimitedUntil = Date.now() + backoffMsFromError(error);
+    } else {
+      console.error(`[crawlWebsite] Error crawling ${url}:`, error);
     }
     // Return empty result on error
     return { data: [] };

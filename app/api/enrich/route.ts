@@ -14,6 +14,25 @@ const enrichRequestSchema = z.object({
   })).optional(),
 });
 
+// Timeout for enrichment operations (60 seconds)
+const ENRICHMENT_TIMEOUT_MS = 60 * 1000;
+
+/**
+ * Wraps a promise with a timeout
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    ),
+  ]);
+}
+
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
@@ -73,9 +92,13 @@ export async function POST(request: NextRequest) {
 
     const { email, fields } = validationResult.data;
 
-    // Enrich email
+    // Enrich email with timeout
     const strategy = new AgentEnrichmentStrategy(openaiApiKey, firecrawlApiKey);
-    const result = await strategy.enrichEmail(email, fields);
+    const result = await withTimeout(
+      strategy.enrichEmail(email, fields),
+      ENRICHMENT_TIMEOUT_MS,
+      'Enrichment operation timed out. Please try again.'
+    );
 
     if (result.status === 'skipped') {
       return NextResponse.json({
@@ -86,9 +109,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.status === 'error') {
+      // Provide more helpful error messages
+      const errorMessage = result.error || 'Enrichment failed';
+      const isSchemaError = errorMessage.includes('schema') || errorMessage.includes('format');
+      
       return NextResponse.json({
         success: false,
-        error: result.error || 'Enrichment failed',
+        error: isSchemaError 
+          ? 'Enrichment schema error. Please contact support if this persists.'
+          : errorMessage,
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
       }, { status: 500 });
     }
 

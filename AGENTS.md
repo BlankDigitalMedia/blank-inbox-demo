@@ -21,6 +21,7 @@
   - Route protection via `proxy.ts` (Next.js 16+ convention, migrated from middleware.ts)
   - 30-day persistent cookie sessions configured in proxy
   - Server-side enforcement: `afterUserCreatedOrUpdated` callback prevents multiple signups, `profile` function validates admin email
+  - Demo mode: When `DEMO_MODE=true`, single-user restriction is bypassed (allows multiple demo users)
   - All Convex queries/mutations/actions properly await `requireUserId()` for auth enforcement
 - **Email**: Dual-provider support for both sending and receiving
   - **Receiving**: Webhook at `/inbound` Convex HTTP endpoint handles both Resend and inbound.new formats
@@ -33,6 +34,7 @@
   - **Sending**: Tries Resend first (if RESEND_API_KEY set), falls back to inbound.new (if NEXT_INBOUND_API_KEY set)
     - Limits: 100 recipients max, 1MB body, 500 char subject
     - Retry strategy: 3 attempts with 5s/10s/15s backoff
+    - Demo mode: When `DEMO_MODE=true`, email sending is mocked (no API calls, fake messageId generated, stored locally)
 - **Database**: Convex with emails table (from, to, cc, bcc, subject, preview, body, read/starred/archived/trashed/draft status, receivedAt, messageId, threadId, inReplyTo, references, replyTo, rawHeaders, category) and users table for authentication and contacts table (primaryEmail, name, emails, company, title, avatarUrl, notes, tags, lastContactedAt, crmIds, enrichment, customFields, createdAt, updatedAt)
   - Indexes: by_messageId (idempotency), by_threadId (threading), by_receivedAt (chronological ordering), by_read, by_archived, by_trashed, by_draft (query optimization), by_primaryEmail, by_name, by_updatedAt (contacts)
   - Performance: Pagination limits (100 items per query for most queries, 50 items per page for contact email timeline with cursor-based pagination)
@@ -82,6 +84,14 @@
     - Sonner toast notifications with built-in aria-live regions
     - jsx-a11y ESLint rules enabled for ongoing accessibility compliance
   - Composer hidden on signin page for cleaner UX
+  - Demo mode: Optional demo environment for testing/public demos (located in `examples/demo/`)
+    - Enable via `NEXT_PUBLIC_DEMO_MODE=true` (client) and `DEMO_MODE=true` (Convex)
+    - Mocks email sending (emails stored locally, not actually sent)
+    - Bypasses single-user restriction (allows multiple demo users)
+    - Pre-seeded sample data (emails and contacts)
+    - Demo banner with reset functionality
+    - Demo code is optional and can be safely ignored/removed by forkers
+    - See `examples/demo/README.md` for complete documentation
 
 ## Code Style Guidelines
 - **TypeScript**: Strict mode enabled with `noImplicitAny` and `noUncheckedIndexedAccess`, target ES2017
@@ -120,6 +130,7 @@
 - **docs/WEBHOOK_SECURITY.md**: Webhook security implementation and setup guide
 - **docs/ACCESSIBILITY.md**: Accessibility features and WCAG compliance documentation
 - **docs/VALIDATION.md**: Zod schema validation documentation
+- **examples/demo/README.md**: Complete guide for enabling and using demo mode (optional feature)
 - **docs/DEDUPLICATION_SUMMARY.md**: Code deduplication effort summary
 - **CODE_CLEANUP.md**: Comprehensive code review findings and cleanup tasks
 - **SPRINT_SUMMARY.md**: Security hardening sprint completion summary (Nov 2025)

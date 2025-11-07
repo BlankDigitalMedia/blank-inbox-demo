@@ -4,11 +4,11 @@ import type { AgentResult } from '../core/types';
 import { scrapeWebsite, searchWeb, crawlWebsite } from '../tools/firecrawl-tools';
 
 const TechStackResultSchema = z.object({
-  languages: z.array(z.string()).optional(),
-  frameworks: z.array(z.string()).optional(),
-  infrastructure: z.array(z.string()).optional(),
-  tools: z.array(z.string()).optional(),
-  techStack: z.array(z.string()).optional(), // Combined for convenience
+  languages: z.array(z.string()).nullable(),
+  frameworks: z.array(z.string()).nullable(),
+  infrastructure: z.array(z.string()).nullable(),
+  tools: z.array(z.string()).nullable(),
+  techStack: z.array(z.string()).nullable(), // Combined for convenience
 });
 
 export type TechStackResult = z.infer<typeof TechStackResultSchema>;

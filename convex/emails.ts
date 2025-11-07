@@ -194,12 +194,15 @@ export const unreadCount = query({
   handler: async (ctx) => {
     await requireUserId(ctx);
     // Use by_read index for fast filtering on read status
+    // Only count incoming emails (exclude sent emails and drafts)
     const emails = await ctx.db
       .query("emails")
       .withIndex("by_read")
       .filter((q) => q.eq(q.field("read"), false))
       .filter((q) => isFalseOrUndef(q, "archived"))
       .filter((q) => isFalseOrUndef(q, "trashed"))
+      .filter((q) => isFalseOrUndef(q, "sent")) // Exclude sent emails
+      .filter((q) => isFalseOrUndef(q, "draft")) // Exclude drafts
       .collect()
     return emails.length
   },
@@ -927,6 +930,66 @@ export const sendEmail = action({
   handler: async (ctx, args): Promise<{ success: boolean; messageId: string; docId: Id<"emails"> }> => {
     await requireUserId(ctx);
     const { from, to, cc, bcc, subject, html, text, originalEmailId, draftId } = sendEmailSchema.parse(args);
+    
+    // DEMO MODE: Mock email sending if demo mode is enabled
+    const isDemoMode = process.env.DEMO_MODE === "true";
+    
+    if (isDemoMode) {
+      // Generate fake messageId for demo
+      const demoMessageId = `demo-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      
+      // Fetch original email to build threading headers if replying
+      let threadingHeaders: Record<string, string> | undefined;
+      let originalEmail: Doc<"emails"> | null = null;
+      if (originalEmailId) {
+        const fetchedEmail = await ctx.runQuery(api.emails.getById, { id: originalEmailId });
+        if (fetchedEmail) {
+          originalEmail = fetchedEmail as Doc<"emails">;
+          const inReplyTo = originalEmail.messageId;
+          const newReferences = [
+            ...(originalEmail.references || []),
+            originalEmail.messageId,
+          ].filter((ref): ref is string => typeof ref === 'string').slice(-50);
+          
+          if (inReplyTo) {
+            threadingHeaders = {
+              "In-Reply-To": `<${inReplyTo}>`,
+              "References": newReferences.map((ref: string) => `<${ref}>`).join(" "),
+            };
+          }
+        }
+      }
+      
+      // Store the sent email record (mock send - no actual API call)
+      const docId = await ctx.runMutation(api.emails.storeSentEmail, {
+        from,
+        to,
+        cc,
+        bcc,
+        subject,
+        html,
+        text,
+        messageId: demoMessageId,
+        originalEmailId,
+        originalEmail: originalEmail ? {
+          messageId: originalEmail.messageId,
+          threadId: originalEmail.threadId,
+          references: originalEmail.references,
+        } : null,
+      });
+      
+      // If this was from a draft, delete the draft
+      if (draftId) {
+        await ctx.runMutation(api.emails.deleteEmail, { id: draftId });
+      }
+      
+      logInfo("Demo mode: Email mock-sent (not actually sent)", {
+        action: "send_email_demo",
+        metadata: { messageId: demoMessageId, to },
+      });
+      
+      return { success: true, messageId: demoMessageId, docId };
+    }
     
     // Enforce sending limits (prevent abuse)
     const MAX_RECIPIENTS = 100;

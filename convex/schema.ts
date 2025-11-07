@@ -78,6 +78,12 @@ export default defineSchema({
     .index("by_primaryEmail", ["primaryEmail"])
     .index("by_name", ["name"])
     .index("by_updatedAt", ["updatedAt"]),
+  user_settings: defineTable({
+    userId: v.string(),
+    incomingSound: v.string(),
+    outgoingSound: v.string(),
+  })
+    .index("by_userId", ["userId"]),
 });
 
 

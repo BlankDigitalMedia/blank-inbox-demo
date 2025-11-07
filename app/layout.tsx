@@ -12,6 +12,14 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server"
 import { NewMailSound } from '@/components/new-mail-sound'
 import { SentMailSound } from '@/components/sent-mail-sound'
 
+// Conditionally import demo banner (only if demo mode is enabled)
+// Using dynamic import to avoid bundling demo code when not needed
+let DemoBanner: (() => JSX.Element | null) | null = null;
+if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  DemoBanner = require("@/examples/demo/components/demo-banner").DemoBanner;
+}
+
 const bangers = Bangers({
   subsets: ['latin'],
   weight: '400',
@@ -47,6 +55,7 @@ export default function RootLayout({
           >
             <ConvexClientProvider>
               <ComposeProvider>
+                {DemoBanner && <DemoBanner />}
                 {children}
                 <ComposeDockWrapper />
                 <Toaster />

@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { BaseAgent } from '../core/agent-base';
+import { BaseAgent, urlString } from '../core/agent-base';
 import type { AgentResult, EmailContext } from '../core/types';
 import { scrapeWebsite, searchWeb, mapWebsite } from '../tools/firecrawl-tools';
 
 const DiscoveryResultSchema = z.object({
-  companyName: z.string().optional(),
-  website: z.string().url().optional(),
-  domain: z.string().optional(),
-  companyType: z.enum(['startup', 'enterprise', 'sme', 'nonprofit', 'unknown']).optional(),
+  companyName: z.string().nullable(),
+  website: urlString.nullable(),
+  domain: z.string().nullable(),
+  companyType: z.enum(['startup', 'enterprise', 'sme', 'nonprofit', 'unknown']).nullable(),
 });
 
 export type DiscoveryResult = z.infer<typeof DiscoveryResultSchema>;

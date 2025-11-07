@@ -4,12 +4,12 @@ import type { AgentResult } from '../core/types';
 import { searchWeb, scrapeWebsite, crawlWebsite } from '../tools/firecrawl-tools';
 
 const CompanyProfileResultSchema = z.object({
-  industry: z.string().optional(),
-  headquarters: z.string().optional(),
-  yearFounded: z.number().optional(),
-  description: z.string().optional(),
-  employeeCount: z.string().optional(),
-  companyType: z.enum(['startup', 'enterprise', 'sme', 'nonprofit', 'unknown']).optional(),
+  industry: z.string().nullable(),
+  headquarters: z.string().nullable(),
+  yearFounded: z.number().nullable(),
+  description: z.string().nullable(),
+  employeeCount: z.string().nullable(),
+  companyType: z.enum(['startup', 'enterprise', 'sme', 'nonprofit', 'unknown']).nullable(),
 });
 
 export type CompanyProfileResult = z.infer<typeof CompanyProfileResultSchema>;

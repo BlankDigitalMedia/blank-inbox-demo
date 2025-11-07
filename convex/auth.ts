@@ -32,6 +32,14 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, args) {
+      // DEMO MODE: Skip single-user restriction if demo mode is enabled
+      const isDemoMode = process.env.DEMO_MODE === "true";
+      
+      if (isDemoMode) {
+        // In demo mode, allow multiple users (for demo purposes)
+        return;
+      }
+
       // Enforce single-user restriction: if more than one user exists, delete the newest and throw
       const users = await ctx.db.query("users").collect();
       

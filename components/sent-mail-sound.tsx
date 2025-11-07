@@ -4,15 +4,20 @@ import { useEffect, useRef } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { usePathname } from "next/navigation"
+import { getSoundFile, DEFAULT_OUTGOING } from "@/lib/sounds"
 
 function SentMailSoundInner() {
   const sentEmails = useQuery(api.emails.listSent)
+  const settings = useQuery(api.users.getSettings)
   const prevCountRef = useRef<number | undefined>(undefined)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  
+  const outgoingSound = settings?.outgoingSound ?? DEFAULT_OUTGOING
+  const soundFile = getSoundFile(outgoingSound)
 
-  // Initialize audio once
+  // Initialize audio and recreate when sound changes
   useEffect(() => {
-    const audio = new Audio("/sounds/cowabunga.mp3")
+    const audio = new Audio(soundFile)
     audio.preload = "auto"
     audioRef.current = audio
     return () => {
@@ -22,7 +27,7 @@ function SentMailSoundInner() {
         audioRef.current = null
       }
     }
-  }, [])
+  }, [soundFile])
 
   // Play when sent email count increases (skip first load)
   useEffect(() => {

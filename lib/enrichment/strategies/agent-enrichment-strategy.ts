@@ -26,16 +26,45 @@ export class AgentEnrichmentStrategy {
 
       const enrichments = await this.orchestrator.enrichEmail(email, fields);
       
+      // Validate enrichment results before returning
+      const validatedEnrichments: Record<string, EnrichmentResult> = {};
+      for (const [fieldName, result] of Object.entries(enrichments)) {
+        // Basic validation: ensure value is not undefined and confidence is valid
+        if (result && typeof result.confidence === 'number' && result.confidence >= 0 && result.confidence <= 1) {
+          validatedEnrichments[fieldName] = result;
+        } else {
+          console.warn(`[AgentEnrichmentStrategy] Invalid enrichment result for field ${fieldName}, skipping`);
+        }
+      }
+      
       return {
-        enrichments,
+        enrichments: validatedEnrichments,
         status: 'completed',
       };
     } catch (error) {
       console.error('[AgentEnrichmentStrategy] Enrichment error:', error);
+      
+      // Extract meaningful error message
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Check for OpenAI API errors
+        if ('status' in error) {
+          const status = (error as { status?: number }).status;
+          if (status === 400) {
+            errorMessage = 'Invalid request to enrichment service';
+          } else if (status === 429) {
+            errorMessage = 'Rate limit exceeded. Please try again later.';
+          } else if (status === 500 || status === 502 || status === 503) {
+            errorMessage = 'Enrichment service temporarily unavailable. Please try again later.';
+          }
+        }
+      }
+      
       return {
         enrichments: {},
         status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       };
     }
   }

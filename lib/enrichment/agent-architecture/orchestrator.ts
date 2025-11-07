@@ -104,149 +104,55 @@ export class SimpleEnrichmentOrchestrator {
           sourceContext: discoveryResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
         };
       }
+      
+      // Log any errors from the agent but continue
+      if (discoveryResult.errors && Object.keys(discoveryResult.errors).length > 0) {
+        console.warn('[Orchestrator] DiscoveryAgent completed with errors:', discoveryResult.errors);
+      }
     } catch (error) {
-      console.error('[Orchestrator] DiscoveryAgent error:', error);
+      console.error('[Orchestrator] DiscoveryAgent failed (continuing with other agents):', error);
+      // Continue execution - other agents may still succeed
     }
 
-    // Phase 2: Company Profile
-    try {
-      console.log('[Orchestrator] Running CompanyProfileAgent...');
-      const profileResult = await companyProfileAgent.execute({
-        email,
-        emailContext,
-        discoveredData,
-        requestedFields,
-      });
-      
-      // Merge results (prefer higher confidence if conflict)
-      for (const [fieldName, value] of Object.entries(profileResult.fields)) {
+    // Phases 2-6 in parallel for maximum speed
+    const parallelAgents = [
+      { name: 'CompanyProfileAgent', run: () => companyProfileAgent.execute({ email, emailContext, discoveredData, requestedFields }) },
+      { name: 'FundingAgent', run: () => fundingAgent.execute({ email, emailContext, discoveredData, requestedFields }) },
+      { name: 'TechStackAgent', run: () => techStackAgent.execute({ email, emailContext, discoveredData, requestedFields }) },
+      { name: 'PersonAgent', run: () => personAgent.execute({ email, emailContext, discoveredData, requestedFields }) },
+      { name: 'GeneralAgent', run: () => generalAgent.execute({ email, emailContext, discoveredData, requestedFields }) },
+    ];
+
+    const results = await Promise.allSettled(parallelAgents.map(a => a.run()));
+
+    results.forEach((res, idx) => {
+      const agentName = parallelAgents[idx].name;
+      if (res.status !== 'fulfilled') {
+        console.error(`[Orchestrator] ${agentName} failed (parallel):`, res.reason);
+        return;
+      }
+      const r = res.value;
+      // Merge results
+      for (const [fieldName, value] of Object.entries(r.fields)) {
         const existing = allResults[fieldName];
-        const newConfidence = profileResult.confidence[fieldName] ?? 0.7;
-        
+        const newConfidence = r.confidence[fieldName] ?? 0.7;
         if (!existing || newConfidence > existing.confidence) {
           allResults[fieldName] = {
             field: fieldName,
             value,
             confidence: newConfidence,
-            source: profileResult.sources[fieldName]?.[0],
-            sourceContext: profileResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
+            source: r.sources[fieldName]?.[0],
+            sourceContext: r.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
           };
         }
       }
-    } catch (error) {
-      console.error('[Orchestrator] CompanyProfileAgent error:', error);
-    }
-
-    // Phase 3: Funding
-    try {
-      console.log('[Orchestrator] Running FundingAgent...');
-      const fundingResult = await fundingAgent.execute({
-        email,
-        emailContext,
-        discoveredData,
-        requestedFields,
-      });
-      
-      for (const [fieldName, value] of Object.entries(fundingResult.fields)) {
-        const existing = allResults[fieldName];
-        const newConfidence = fundingResult.confidence[fieldName] ?? 0.7;
-        
-        if (!existing || newConfidence > existing.confidence) {
-          allResults[fieldName] = {
-            field: fieldName,
-            value,
-            confidence: newConfidence,
-            source: fundingResult.sources[fieldName]?.[0],
-            sourceContext: fundingResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
-          };
-        }
+      if (r.errors && Object.keys(r.errors).length > 0) {
+        console.warn(`[Orchestrator] ${agentName} completed with errors:`, r.errors);
       }
-    } catch (error) {
-      console.error('[Orchestrator] FundingAgent error:', error);
-    }
+    });
 
-    // Phase 4: Tech Stack
-    try {
-      console.log('[Orchestrator] Running TechStackAgent...');
-      const techResult = await techStackAgent.execute({
-        email,
-        emailContext,
-        discoveredData,
-        requestedFields,
-      });
-      
-      for (const [fieldName, value] of Object.entries(techResult.fields)) {
-        const existing = allResults[fieldName];
-        const newConfidence = techResult.confidence[fieldName] ?? 0.7;
-        
-        if (!existing || newConfidence > existing.confidence) {
-          allResults[fieldName] = {
-            field: fieldName,
-            value,
-            confidence: newConfidence,
-            source: techResult.sources[fieldName]?.[0],
-            sourceContext: techResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
-          };
-        }
-      }
-    } catch (error) {
-      console.error('[Orchestrator] TechStackAgent error:', error);
-    }
-
-    // Phase 5: Person
-    try {
-      console.log('[Orchestrator] Running PersonAgent...');
-      const personResult = await personAgent.execute({
-        email,
-        emailContext,
-        discoveredData,
-        requestedFields,
-      });
-      
-      for (const [fieldName, value] of Object.entries(personResult.fields)) {
-        const existing = allResults[fieldName];
-        const newConfidence = personResult.confidence[fieldName] ?? 0.7;
-        
-        if (!existing || newConfidence > existing.confidence) {
-          allResults[fieldName] = {
-            field: fieldName,
-            value,
-            confidence: newConfidence,
-            source: personResult.sources[fieldName]?.[0],
-            sourceContext: personResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
-          };
-        }
-      }
-    } catch (error) {
-      console.error('[Orchestrator] PersonAgent error:', error);
-    }
-
-    // Phase 6: General (catch-all for custom fields)
-    try {
-      console.log('[Orchestrator] Running GeneralAgent...');
-      const generalResult = await generalAgent.execute({
-        email,
-        emailContext,
-        discoveredData,
-        requestedFields,
-      });
-      
-      for (const [fieldName, value] of Object.entries(generalResult.fields)) {
-        // Only add if not already present
-        if (!allResults[fieldName]) {
-          allResults[fieldName] = {
-            field: fieldName,
-            value,
-            confidence: generalResult.confidence[fieldName] ?? 0.7,
-            source: generalResult.sources[fieldName]?.[0],
-            sourceContext: generalResult.sources[fieldName]?.map(url => ({ url, snippet: '' })) || [],
-          };
-        }
-      }
-    } catch (error) {
-      console.error('[Orchestrator] GeneralAgent error:', error);
-    }
-
+    // Return all collected results, even if some agents failed
+    console.log(`[Orchestrator] Enrichment completed. Collected ${Object.keys(allResults).length} fields.`);
     return allResults;
   }
 }

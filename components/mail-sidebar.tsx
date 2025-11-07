@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -20,7 +21,8 @@ import {
   SidebarMenuBadge,
   SidebarFooter,
 } from "@/components/ui/sidebar"
-import { Inbox, Send, FileText, Archive, Trash2, Star, Search, PenSquare, LogOut, Users } from "lucide-react"
+import { Inbox, Send, FileText, Archive, Trash2, Star, Search, PenSquare, LogOut, Users, Settings } from "lucide-react"
+import { SoundSettingsDialog } from "@/components/settings/sound-settings-dialog"
 
 interface MailSidebarProps {
   activeView?: "inbox" | "starred" | "sent" | "archive" | "trash" | "drafts" | "contacts"
@@ -31,6 +33,7 @@ export function MailSidebar({ activeView, unreadCount = 0 }: MailSidebarProps) {
   const { openNew } = useCompose()
   const { signOut } = useAuthActions()
   const router = useRouter()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -42,7 +45,17 @@ export function MailSidebar({ activeView, unreadCount = 0 }: MailSidebarProps) {
       <SidebarHeader>
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Mail</h1>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Open sound settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
         <Button onClick={() => openNew()} className="w-full justify-start gap-2" size="sm">
           <PenSquare className="h-4 w-4" />
@@ -130,6 +143,7 @@ export function MailSidebar({ activeView, unreadCount = 0 }: MailSidebarProps) {
           Sign Out
         </Button>
       </SidebarFooter>
+      <SoundSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Sidebar>
   )
 }

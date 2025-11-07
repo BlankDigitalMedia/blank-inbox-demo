@@ -4,12 +4,12 @@ import type { AgentResult } from '../core/types';
 import { searchWeb } from '../tools/firecrawl-tools';
 
 const FundingResultSchema = z.object({
-  fundingStage: z.enum(['seed', 'series-a', 'series-b', 'series-c', 'series-d', 'series-e', 'series-f', 'ipo', 'acquired', 'bootstrapped', 'unknown']).optional(),
-  totalRaised: z.string().optional(),
-  lastRoundAmount: z.string().optional(),
-  lastRoundDate: z.string().optional(),
-  investors: z.array(z.string()).optional(),
-  valuation: z.string().optional(),
+  fundingStage: z.enum(['seed', 'series-a', 'series-b', 'series-c', 'series-d', 'series-e', 'series-f', 'ipo', 'acquired', 'bootstrapped', 'unknown']).nullable(),
+  totalRaised: z.string().nullable(),
+  lastRoundAmount: z.string().nullable(),
+  lastRoundDate: z.string().nullable(),
+  investors: z.array(z.string()).nullable(),
+  valuation: z.string().nullable(),
 });
 
 export type FundingResult = z.infer<typeof FundingResultSchema>;

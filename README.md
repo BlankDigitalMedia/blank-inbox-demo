@@ -66,16 +66,8 @@ NEXT_PUBLIC_CONVEX_URL=https://[your-project].convex.cloud
 # Optional: Restrict signup to specific email
 ADMIN_EMAIL=your-email@example.com
 
-# Email providers (at least one recommended)
-RESEND_API_KEY=re_your_resend_api_key
-NEXT_INBOUND_API_KEY=sk_your_inbound_api_key
-
-# Contact enrichment (optional - for AI-powered contact enrichment)
-# Requires both keys for full enrichment capabilities:
-# - FIRECRAWL_API_KEY: For web scraping, crawling, and search (get from https://firecrawl.dev)
-# - OPENAI_API_KEY: For AI-powered data extraction (get from https://platform.openai.com)
-FIRECRAWL_API_KEY=fc_your_firecrawl_api_key
-OPENAI_API_KEY=sk_your_openai_api_key
+# Optional: Enable demo mode (see Demo Mode section below)
+NEXT_PUBLIC_DEMO_MODE=true
 ```
 
 **Set email provider keys in Convex** (for backend access):
@@ -93,7 +85,12 @@ npx convex env set INBOUND_WEBHOOK_SECRET $(openssl rand -hex 32)
 
 # Optional: Set ADMIN_EMAIL in Convex
 npx convex env set ADMIN_EMAIL your-email@example.com
+
+# Optional: Enable demo mode in Convex
+npx convex env set DEMO_MODE true
 ```
+
+See [`.env.example`](.env.example) for complete environment variable documentation.
 
 ### 4. Start Development Server
 
@@ -112,6 +109,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 **Note:** Only the **first signup** is allowed. After that, the instance is locked to a single user. If you set `ADMIN_EMAIL`, only that email can sign up.
 
+**Demo Mode:** If `DEMO_MODE=true` is set, multiple users can sign up and email sending is mocked. See [Demo Mode](#demo-mode) section below.
+
 ### 6. Configure Email Webhooks (for receiving)
 
 To receive emails, configure your provider's webhook:
@@ -129,6 +128,49 @@ To receive emails, configure your provider's webhook:
 2. Set webhook URL: `https://your-convex-deployment.convex.cloud/inbound`
 3. Add custom header: `X-Webhook-Secret` = (your `INBOUND_WEBHOOK_SECRET` value)
 4. Configure your inbound email address
+
+---
+
+## Demo Mode
+
+Blank Inbox includes an **optional** demo mode that allows visitors to try the application without requiring real email provider API keys or webhook configuration.
+
+Demo mode code is located in `examples/demo/` and can be safely ignored if you don't need it.
+
+### Features
+
+- **Mocked Email Sending**: Emails are stored locally but not actually sent
+- **Multiple Users**: Bypasses single-user restriction (for demo purposes)
+- **Pre-seeded Data**: Sample emails and contacts included
+- **Easy Reset**: Reset demo data with one click
+
+### Quick Setup
+
+1. **Enable demo mode** in `.env.local`:
+   ```bash
+   NEXT_PUBLIC_DEMO_MODE=true
+   ```
+
+2. **Enable demo mode in Convex**:
+   ```bash
+   npx convex env set DEMO_MODE true
+   ```
+
+3. **Restart servers** and visit the app - demo banner will appear at the top
+
+4. **Seed demo data** by clicking "Reset Demo Data" in the banner
+
+### Demo User
+
+Suggested demo credentials:
+- Email: `demo@blankinbox.dev`
+- Password: `demo123`
+
+Or use any email/password combination.
+
+### Documentation
+
+For complete demo mode documentation, see [examples/demo/README.md](examples/demo/README.md).
 
 ---
 
